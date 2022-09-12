@@ -10,11 +10,9 @@ export default function(exchange: Exchange, queue: Queue<TradeDataJob>) {
             const res = await exchange.fetchTrades(symbol, since, limit, params);
             await Promise.all(res.map(async (trade) => {
                 console.log('inserting Trade for ' + exchange.name);
-                await queue.add('insertTrade', trade);
+                await queue.add('insertTrade', { ...trade, symbol });
                 console.log('done inserting Trade for ' + exchange.name);
             }))
-            await queue.close();
-        } 
-        await queue.close();
+        }
     }
 }

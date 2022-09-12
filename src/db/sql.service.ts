@@ -5,7 +5,7 @@ import postgres from "postgres";
 //     port: parseInt(process.env.POSTGRES_PORT || '5432')
 // }
 
-const connection = `postgres://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}@${process.env.POSTGRES_HOST}:${process.env.PORT}/${process.env.POSTGRES_DB}`;
+const connection = `postgres://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT}/${process.env.POSTGRES_DB}`;
 
 const sql = postgres(connection);
 

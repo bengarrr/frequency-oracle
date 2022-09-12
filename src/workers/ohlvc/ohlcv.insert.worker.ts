@@ -6,6 +6,6 @@ import { OHLCVDataJob } from "../../interfaces/ohlcv-data-job";
 export default function(exchange: Exchange, queue?: Queue<OHLCVDataJob>) {
     const db = new DbService(exchange.name);
     return async function(job: Job<OHLCVDataJob>) {
-        await db.insertOHLCV(job.data)
+        await db.insertOHLCV({ ...job.data.ohlcv, symbol: job.data.symbol })
     }
 }

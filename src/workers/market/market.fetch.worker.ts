@@ -12,6 +12,5 @@ export default function(exchange: Exchange, queue: Queue<MarketDataJob>) {
             await queue.add('insertMarket', market);
             console.log('done inserting Market for ' + exchange.name);
         }))
-        await queue.close();
     }
 }

@@ -1,21 +1,35 @@
 import { Market, OHLCV, OrderBook, Ticker, Trade } from 'ccxt';
-import sql from './postgres';
+import sql from './sql.service';
+const sparkmd5: any = require("spark-md5");
+
+const tables = ['orderbooks', 'tickers', 'trades', 'markets', 'ohlcv'];
 
 export class DbService {
     private readonly tableRoot: string;
     constructor(tableRoot: string) {
-        this.tableRoot = tableRoot;
+        this.tableRoot = tableRoot.toLowerCase();
+        this.createTables();
     }
 
     async insert(table: string, json: any) {
-        const _json = await sql`
-            insert into ${this.tableRoot}_${table}
-                (json)
-            values
-                (${json})
-            returning json
-        `
-        return _json
+        try {
+            const tableName = this.tableRoot+'_'+table;
+            const json_hash = sparkmd5.hash(JSON.stringify(json));
+            const _json = await sql`
+                INSERT INTO ${ sql(tableName) }
+                    (json, json_hash, symbol)
+                VALUES
+                    (${ json }, ${ json_hash }, ${ json.symbol })
+                ON CONFLICT (json_hash) 
+                DO NOTHING
+                RETURNING json
+            `
+            return _json
+        }
+        catch(error) {
+            console.log(error)
+        }
+        return {}
     }
 
     async insertOrderBook(json: OrderBook) {
@@ -34,12 +48,32 @@ export class DbService {
     }
 
     async insertMarket(json: Market) {
-        const _json = await this.insert('market', json);
+        const _json = await this.insert('markets', {...json, symbol: 'none'});
         return _json;
     }
 
-    async insertOHLCV(json: OHLCV) {
+    async insertOHLCV(json: any) {
         const _json = await this.insert('ohlcv', json);
         return _json;
+    }
+
+    async createTables() {
+        for(const table of tables) {
+            const tableName = this.tableRoot+'_'+table;
+            sql`
+                CREATE TABLE IF NOT EXISTS ${ sql(tableName) } (
+                    id BIGSERIAL,
+                    json JSONB,
+                    json_hash VARCHAR UNIQUE,
+                    symbol VARCHAR,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY(id)
+                )
+            `.catch(err => {
+                console.log(err)
+            }).then(res => {
+                console.log(res)
+            })
+        }   
     }
 }

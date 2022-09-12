@@ -9,9 +9,8 @@ export default function(exchangeInstance: Exchange, queue: Queue<TickerDataJob>)
         if(symbol) {
             const res = await exchangeInstance.fetchTicker(symbol, params);
             console.log('inserting Ticker for ' + exchangeInstance.name);
-            await queue.add('insertTicker', res);
+            await queue.add('insertTicker', { ...res, symbol });
             console.log('done inserting Ticker for ' + exchangeInstance.name);
         }
-        await queue.close();
     }
 }

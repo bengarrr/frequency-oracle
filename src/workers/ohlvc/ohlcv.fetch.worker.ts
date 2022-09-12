@@ -10,11 +10,9 @@ export default function(exchangeInstance: Exchange, queue: Queue<OHLCVDataJob>) 
             const res = await exchangeInstance.fetchOHLCV(symbol, timeframe, since, limit, params);
             await Promise.all(res.map(async ohlcv => {
                 console.log('inserting Order Books for ' + exchangeInstance.name);
-                await queue.add('insertOrderBook', ohlcv);
+                await queue.add('insertOrderBook', { ohlcv, symbol });
                 console.log('done inserting Order Books for ' + exchangeInstance.name);
             }))
-            await queue.close();    
         }
-        await queue.close();
     }
 }

@@ -28,7 +28,8 @@ import ohlcvInsertProcessorFactory from "./workers/ohlvc/ohlcv.insert.worker";
 
 export type AppWorker = {
     worker: Worker,
-    scheduler: QueueScheduler
+    scheduler: QueueScheduler,
+    insertQueue?: Queue
 }
 
 export type FetchQueues = {
@@ -56,8 +57,6 @@ const insertProcessorFactories = [
     ohlcvInsertProcessorFactory
 ];
 
-const orderBookQueue = new Queue<FetchDataJob>('orderBookFetch', { connection })
-
 function run() {
     const exchangeInstances = createExchanges(exchangeDefinitions);
     const exchangeFetchWorkers = createFetchWorkers(exchangeInstances, fetchProcessorFactories);
@@ -73,6 +72,7 @@ function run() {
         exchangeFetchWorkers.map((worker) => {
             worker.worker.close();
             worker.scheduler.close();
+            worker.insertQueue?.close();
         })
         exchangeInsertWorkers.map((worker) => {
             worker.worker.close();
@@ -91,8 +91,11 @@ run();
 async function scheduleOrderBookPullAll(exchanges: Array<ExchangeInstance>, queues: FetchQueues): Promise<void> {
     for(const exchange of exchanges) {
         for(const symbol of exchange.symbols) {
-            await queues[exchange.instance.name].add('fetchOrderBooks', { options: { symbol } })
-            await queues[exchange.instance.name].close();
+            await queues[exchange.instance.name].add('fetchOrderBooks', { options: { symbol } }, {
+                repeat: {
+                    every: 2000
+                }
+            })
         }
     }
 }
@@ -100,8 +103,11 @@ async function scheduleOrderBookPullAll(exchanges: Array<ExchangeInstance>, queu
 async function scheduleTickerFetchPullAll(exchanges: Array<ExchangeInstance>, queues: FetchQueues): Promise<void> {
     for(const exchange of exchanges) {
         for(const symbol of exchange.symbols) {
-            await queues[exchange.instance.name].add('fetchTicker', { options: { symbol }});
-            await queues[exchange.instance.name].close();
+            await queues[exchange.instance.name].add('fetchTicker', { options: { symbol }},  {
+                repeat: {
+                    every: 3600000
+                }
+            });
         }
     }
 }
@@ -109,7 +115,11 @@ async function scheduleTickerFetchPullAll(exchanges: Array<ExchangeInstance>, qu
 async function sceheduleTradeFetchPullAll(exchanges: Array<ExchangeInstance>, queues: FetchQueues): Promise<void> {
     for(const exchange of exchanges) {
         for(const symbol of exchange.symbols) {
-            await queues[exchange.instance.name].add('fetchTrade', { options: { symbol }})
+            await queues[exchange.instance.name].add('fetchTrade', { options: { symbol }},  {
+                repeat: {
+                    every: 2000
+                }
+            })
         }
     }
 }
@@ -117,7 +127,11 @@ async function sceheduleTradeFetchPullAll(exchanges: Array<ExchangeInstance>, qu
 async function scheduleOHLCVFetchPullAll(exchanges: Array<ExchangeInstance>, queues: FetchQueues): Promise<void> {
     for(const exchange of exchanges) {
         for(const symbol of exchange.symbols) {
-            await queues[exchange.instance.name].add('fetchOHLCV', { options: { symbol }})
+            await queues[exchange.instance.name].add('fetchOHLCV', { options: { symbol }}, {
+                repeat: {
+                    every: 10000
+                }
+            })
         }
     }
 }
@@ -125,7 +139,11 @@ async function scheduleOHLCVFetchPullAll(exchanges: Array<ExchangeInstance>, que
 async function scheduleMarketFetchPullAll(exchanges: Array<ExchangeInstance>, queues: FetchQueues): Promise<void> {
     for(const exchange of exchanges) {
         for(const symbol of exchange.symbols) {
-            await queues[exchange.instance.name].add('fetchMarkets', { options: { symbol }})
+            await queues[exchange.instance.name].add('fetchMarkets', { options: { symbol }}, {
+                repeat: {
+                    every: 3600000
+                }
+            })
         }
     }
 }
@@ -182,10 +200,10 @@ function createInsertWorkers(exchanges: Array<ExchangeInstance>): Array<AppWorke
 }
 
 function createFetchWorker<T>(exchange: Exchange, factory: any, resource: string) {
-    const insertQueue = new Queue<T>(exchange.name+'_'+resource+'Insert', { connection })
+    const insertQueue = new Queue<T>(getInsertQueueName(exchange, resource), { connection })
     const processor = factory(exchange, insertQueue);
     const { worker, scheduler } = createWorker(getFetchQueueName(exchange, resource), processor, connection);
-    return { worker, scheduler };
+    return { worker, scheduler, insertQueue };
 }
 
 function createInsertWorker(exchange: Exchange, factory: any, resource: string) {
@@ -197,6 +215,7 @@ function createInsertWorker(exchange: Exchange, factory: any, resource: string) 
 function getFetchQueueName(exchange: Exchange, resource: string) {
     return exchange.name+'_'+resource+'Fetch';
 }
+
 function getInsertQueueName(exchange: Exchange, resource: string) {
     return exchange.name+'_'+resource+'Insert';
 }
