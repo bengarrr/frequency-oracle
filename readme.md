@@ -1,4 +1,4 @@
-# SecretNodes ExchangeTracker 
+# Oracle
 ## Setup Redis
 
 * Install/configure redis
