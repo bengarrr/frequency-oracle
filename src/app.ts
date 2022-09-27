@@ -1,5 +1,8 @@
 import dotenv from "dotenv";
-dotenv.config({ path: `.env.${process.env.NODE || 'development'}` })
+dotenv.config({ path: `.env.${process.env.NODE || 'development'}` });
+
+import yargs from "yargs";
+import dayjs from "dayjs";
 
 import { createWorker } from "./workers/worker.factory";
 import { CCXT } from "./ccxt/ccxt";
@@ -57,15 +60,53 @@ const insertProcessorFactories = [
     ohlcvInsertProcessorFactory
 ];
 
+const argv = yargs
+    .option('insert', {
+        description: 'option to configure sevrice as databse insert worker',
+        type: 'boolean'
+    })
+    .option('fetch', {
+        description: 'option to configure service as fetch worker',
+        type: 'boolean'
+    })
+    .option('symbol', {
+        description: 'option for fetch workers, which symbol to fetch from exchanges ex',
+        type: 'string'
+    })
+    .option('backfill', {
+        description: 'option for fetch workers date to backfill to, date should be in the form YYYY-MM-DD',
+        type: 'string'
+    })
+    .help()
+    .alias('help', 'h')
+    .parseSync();
+
 function run() {
     const exchangeInstances = createExchanges(exchangeDefinitions);
+
+    if(argv.fetch) {
+        runFetchWorkers(exchangeInstances);
+    }
+    else if(argv.insert) {
+        runInsertWorkers(exchangeInstances);
+    }
+}
+run();
+
+function runFetchWorkers(exchangeInstances: Array<ExchangeInstance>) {
+    const symbol = argv.symbol;
+
+    if(!symbol) {
+        throw new Error('Arguments error: no --symbol flag is set');
+    }
+
     const exchangeFetchWorkers = createFetchWorkers(exchangeInstances, fetchProcessorFactories);
-    const exchangeInsertWorkers = createInsertWorkers(exchangeInstances);
+
     const exchangeOrderBookQueues = createFetchQueues(exchangeInstances, 'orderBook');
-    const exchangeTickerQueues = createFetchQueues(exchangeInstances, 'ticker')
-    const exchangeTradeQueues = createFetchQueues(exchangeInstances, 'trade')
-    const exchangeOHLCVQueues = createFetchQueues(exchangeInstances, 'ohlcv')
-    const exchangeMarketQueues = createFetchQueues(exchangeInstances, '')
+    const exchangeTickerQueues = createFetchQueues(exchangeInstances, 'ticker');
+    const exchangeTradeQueues = createFetchQueues(exchangeInstances, 'trade');
+    const exchangeOHLCVQueues = createFetchQueues(exchangeInstances, 'ohlcv');
+    const exchangeMarketQueues = createFetchQueues(exchangeInstances, 'market');
 
     process.on("SIGTERM", async () => {
         console.info("SIGTERM signal received: closing queues");
@@ -73,78 +114,76 @@ function run() {
             worker.worker.close();
             worker.scheduler.close();
             worker.insertQueue?.close();
-        })
+        });
+    });
+
+    //scheduleOrderBookPullAll(exchangeInstances, exchangeOrderBookQueues, symbol);
+    scheduleTickerFetchPullAll(exchangeInstances, exchangeTickerQueues, symbol);
+    //sceheduleTradeFetchPullAll(exchangeInstances, exchangeTradeQueues, symbol);
+    scheduleOHLCVFetchPullAll(exchangeInstances, exchangeOHLCVQueues, symbol);
+    scheduleMarketFetchPullAll(exchangeInstances, exchangeMarketQueues, symbol);
+}
+
+function runInsertWorkers(exchangeInstances: Array<ExchangeInstance>) {
+    const exchangeInsertWorkers = createInsertWorkers(exchangeInstances);
+
+    process.on("SIGTERM", async () => {
+        console.info("SIGTERM signal received: closing queues");
         exchangeInsertWorkers.map((worker) => {
             worker.worker.close();
             worker.scheduler.close();
-        })
+        });
     });
-
-    scheduleOrderBookPullAll(exchangeInstances, exchangeOrderBookQueues);
-    scheduleTickerFetchPullAll(exchangeInstances, exchangeTickerQueues);
-    sceheduleTradeFetchPullAll(exchangeInstances, exchangeTradeQueues);
-    scheduleOHLCVFetchPullAll(exchangeInstances, exchangeOHLCVQueues);
-    scheduleMarketFetchPullAll(exchangeInstances, exchangeMarketQueues);
 }
-run();
 
-async function scheduleOrderBookPullAll(exchanges: Array<ExchangeInstance>, queues: FetchQueues): Promise<void> {
+async function scheduleOrderBookPullAll(exchanges: Array<ExchangeInstance>, queues: FetchQueues, symbol: string): Promise<void> {
     for(const exchange of exchanges) {
-        for(const symbol of exchange.symbols) {
-            await queues[exchange.instance.name].add('fetchOrderBooks', { options: { symbol } }, {
-                repeat: {
-                    every: 2000
-                }
-            })
-        }
+        await queues[exchange.instance.name].add('fetchOrderBooks', { options: { symbol } }, {
+            repeat: {
+                every: 2000
+            }
+        });
     }
 }
 
-async function scheduleTickerFetchPullAll(exchanges: Array<ExchangeInstance>, queues: FetchQueues): Promise<void> {
+async function scheduleTickerFetchPullAll(exchanges: Array<ExchangeInstance>, queues: FetchQueues, symbol: string): Promise<void> {
     for(const exchange of exchanges) {
-        for(const symbol of exchange.symbols) {
-            await queues[exchange.instance.name].add('fetchTicker', { options: { symbol }},  {
-                repeat: {
-                    every: 3600000
-                }
-            });
-        }
+        await queues[exchange.instance.name].add('fetchTicker', { options: { symbol }},  {
+            repeat: {
+                every: 60000
+            }
+        });
     }
 }
 
-async function sceheduleTradeFetchPullAll(exchanges: Array<ExchangeInstance>, queues: FetchQueues): Promise<void> {
+async function sceheduleTradeFetchPullAll(exchanges: Array<ExchangeInstance>, queues: FetchQueues, symbol: string): Promise<void> {
     for(const exchange of exchanges) {
-        for(const symbol of exchange.symbols) {
-            await queues[exchange.instance.name].add('fetchTrade', { options: { symbol }},  {
-                repeat: {
-                    every: 2000
-                }
-            })
-        }
+        await queues[exchange.instance.name].add('fetchTrade', { options: { symbol }},  {
+            repeat: {
+                every: 2000
+            }
+        });
     }
 }
 
-async function scheduleOHLCVFetchPullAll(exchanges: Array<ExchangeInstance>, queues: FetchQueues): Promise<void> {
+async function scheduleOHLCVFetchPullAll(exchanges: Array<ExchangeInstance>, queues: FetchQueues, symbol: string, backfillDate?: string): Promise<void> {
+    
     for(const exchange of exchanges) {
-        for(const symbol of exchange.symbols) {
-            await queues[exchange.instance.name].add('fetchOHLCV', { options: { symbol }}, {
-                repeat: {
-                    every: 10000
-                }
-            })
-        }
+        await queues[exchange.instance.name].add('fetchOHLCV', { options: { symbol }}, {
+            repeat: {
+                every: 60000
+            }
+        });
     }
 }
 
-async function scheduleMarketFetchPullAll(exchanges: Array<ExchangeInstance>, queues: FetchQueues): Promise<void> {
+async function scheduleMarketFetchPullAll(exchanges: Array<ExchangeInstance>, queues: FetchQueues, symbol: string): Promise<void> {
     for(const exchange of exchanges) {
-        for(const symbol of exchange.symbols) {
-            await queues[exchange.instance.name].add('fetchMarkets', { options: { symbol }}, {
-                repeat: {
-                    every: 3600000
-                }
-            })
-        }
+        await queues[exchange.instance.name].add('fetchMarkets', { options: { symbol }}, {
+            repeat: {
+                every: 60000
+            }
+        });
     }
 }
 
