@@ -31,3 +31,26 @@ To get a list of available exchanges for tracking run:
 
 * Each exchange definition contains an array of Price symbols: i.e. [ "BTC/USD", "ETH/USD", ... ]
 
+## Command Line Options
+
+run command is 
+
+    ts-node src/app.ts 
+
+run 
+
+    ts-node src/app.ts -h 
+
+to get a list of all available command line options
+
+run as insert worker
+
+    ts-node src/app.ts --insert
+
+run as fetch worker
+
+    ts-node src/app.ts --fetch --symbol TRADING/PAIR
+ex:
+
+    ts-node src/app.ts --fetch --symbol BTC/USD
+
