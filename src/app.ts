@@ -6,7 +6,7 @@ import dayjs from "dayjs";
 
 import { createWorker } from "./workers/worker.factory";
 import { CCXT } from "./ccxt/ccxt";
-import { Queue, QueueScheduler, Worker } from "bullmq";
+import { ConnectionOptions, Queue, QueueScheduler, Worker } from "bullmq";
 import { FetchDataJob } from "./interfaces/fetch-data-job";
 import { Exchange } from "ccxt";
 import { ExchangeDefiniton } from "./interfaces/exchange-definition";
@@ -39,9 +39,10 @@ export type FetchQueues = {
     [key: string]: Queue<FetchDataJob>
 }
 
-const connection = {
+const connection: ConnectionOptions = {
     host: process.env.REDIS_HOST as string,
-    port: parseInt(process.env.REDIS_PORT as string)
+    port: parseInt(process.env.REDIS_PORT as string),
+    password: process.env.REDIS_PASS as string
 }
 
 const fetchProcessorFactories = [
@@ -80,7 +81,7 @@ const argv = yargs
     .help()
     .alias('help', 'h')
     .parseSync();
-
+   
 function run() {
     const exchangeInstances = createExchanges(exchangeDefinitions);
 

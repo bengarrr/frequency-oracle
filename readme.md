@@ -54,3 +54,6 @@ ex:
 
     ts-node src/app.ts --fetch --symbol BTC/USD
 
+
+
+
