@@ -109,8 +109,8 @@ function runFetchWorkers(exchangeInstances: Array<ExchangeInstance>) {
     const exchangeOHLCVQueues = createFetchQueues(exchangeInstances, 'ohlcv');
     const exchangeMarketQueues = createFetchQueues(exchangeInstances, 'market');
 
-    process.on("SIGTERM", async () => {
-        console.info("SIGTERM signal received: closing queues");
+    process.on("SIGINT", async () => {
+        console.info("SIGINT signal received: closing queues");
         exchangeFetchWorkers.map((worker) => {
             worker.worker.close();
             worker.scheduler.close();
@@ -128,8 +128,8 @@ function runFetchWorkers(exchangeInstances: Array<ExchangeInstance>) {
 function runInsertWorkers(exchangeInstances: Array<ExchangeInstance>) {
     const exchangeInsertWorkers = createInsertWorkers(exchangeInstances);
 
-    process.on("SIGTERM", async () => {
-        console.info("SIGTERM signal received: closing queues");
+    process.on("SIGINT", async () => {
+        console.info("SIGINT signal received: closing queues");
         exchangeInsertWorkers.map((worker) => {
             worker.worker.close();
             worker.scheduler.close();
@@ -192,7 +192,9 @@ function createFetchQueues(exchanges: Array<ExchangeInstance>, resource: string)
     let queues: any = {}
     exchanges.map(exchange => {
         const queueName = getFetchQueueName(exchange.instance, resource);
-        const queue = new Queue<FetchDataJob>(queueName, { connection });
+        const queue = new Queue<FetchDataJob>(queueName, { connection, defaultJobOptions: {
+            removeOnComplete: true, removeOnFail: 1000
+        }});
         queues[exchange.instance.name] = queue
     })
     return queues
