@@ -19,7 +19,13 @@ function diffDays(t1: number, t2: number) {
 }
 
 export async function start() {
-    browser = await puppeteer.launch();
+    if(process.env.NODE_ENV === 'production') {
+        browser = await puppeteer.launch({
+            executablePath: '/snap/bin/chromium'
+        });
+    } else {
+        browser = await puppeteer.launch();
+    }
     page = await browser.newPage();
     await page.goto(endpoint);
 
