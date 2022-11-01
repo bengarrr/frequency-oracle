@@ -4,6 +4,8 @@ const endpoint = 'https://coinmarketcap.com/currencies/secret/';
 
 let browser: puppeteer.Browser | null = null;
 let page: puppeteer.Page | null = null;
+export let currTime: number | null = null;
+let lastPrice: string | undefined = '0';
 
 export function wait(ms: number) {
     return new Promise(resolve => {
@@ -19,6 +21,7 @@ function diffDays(t1: number, t2: number) {
 }
 
 export async function start() {
+    currTime = Date.now();
     if(process.env.NODE_ENV === 'production') {
         browser = await puppeteer.launch({
             executablePath: '/snap/bin/chromium'
@@ -71,6 +74,11 @@ export async function getPrice(timestamp?: number) {
     const price = await page?.evaluate(priceSelector => {
         return document.querySelector(priceSelector)?.querySelector('span')?.innerText;
     }, priceSelector)
+
+    if(lastPrice !== price) {
+        currTime = Date.now();
+        lastPrice = price;
+    }
 
     return Promise.resolve(price);
 }

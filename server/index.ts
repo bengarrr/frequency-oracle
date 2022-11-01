@@ -44,7 +44,7 @@ fastify.get('/', async (request, reply) => {
             } else  {
                 price = await scraper.getPrice();
             }
-            return reply.send({ price: price?.replace('$', '') });
+            return reply.send({ price: price?.replace('$', ''), timestamp: scraper.currTime });
         }
         catch( error ) {
             await scraper.wait(1000);
