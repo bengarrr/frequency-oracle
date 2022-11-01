@@ -13,7 +13,7 @@ const fastify = Fastify({
     logger: true
 });
 
-fastify.get('/ohlcv', async (request, reply) => {
+fastify.get('/candles', async (request, reply) => {
     const { date, exchange, symbol, interval } = request.query as any;
 
     const json = await query(date, exchange, symbol, interval);
@@ -33,10 +33,10 @@ fastify.get('/', async (request, reply) => {
     if(request.query) {
         const { timestamp } = request.query as any;
         const price = await scraper.getPrice(timestamp);
-        return reply.send({ price });
+        return reply.send({ price: price?.replace('$', '') });
     }
     const price = await scraper.getPrice();
-    reply.send({ price });
+    reply.send({ price: price?.replace('$', '') });
 })
 
 fastify.listen({ port: 3000, host: "0.0.0.0" }, function (err, address) {
@@ -55,7 +55,7 @@ fastify.listen({ port: 3000, host: "0.0.0.0" }, function (err, address) {
     }, 60000);
 })
 
-async function query(date: string, exchange: string = "kraken", interval: number = 30, symbol: string = "SCRT/USD") {
+async function query(date: number, exchange: string = "kraken", interval: number = 30, symbol: string = "SCRT/USD") {
     const table = exchange+'_'+'ohlcv';
 
     if(date) {
