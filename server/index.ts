@@ -30,13 +30,27 @@ fastify.get('/candles', async (request, reply) => {
 });
 
 fastify.get('/', async (request, reply) => {
+    let count = 0;
+    const maxTries = 3;
+    let timestamp = null;
     if(request.query) {
-        const { timestamp } = request.query as any;
-        const price = await scraper.getPrice(timestamp);
-        return reply.send({ price: price?.replace('$', '') });
+        timestamp = (request.query as any).timestamp;
     }
-    const price = await scraper.getPrice();
-    reply.send({ price: price?.replace('$', '') });
+    while(true) {
+        try {
+            let price: any = '';
+            if(timestamp) {
+                price = await scraper.getPrice(timestamp);
+            } else  {
+                price = await scraper.getPrice();
+            }
+            return reply.send({ price: price?.replace('$', '') });
+        }
+        catch( error ) {
+            await scraper.wait(1000);
+            if(++count > maxTries) throw error;
+        }
+    }
 })
 
 fastify.listen({ port: 3000, host: "0.0.0.0" }, function (err, address) {

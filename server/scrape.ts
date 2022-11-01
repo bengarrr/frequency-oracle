@@ -5,7 +5,7 @@ const endpoint = 'https://coinmarketcap.com/currencies/secret/';
 let browser: puppeteer.Browser | null = null;
 let page: puppeteer.Page | null = null;
 
-function wait(ms: number) {
+export function wait(ms: number) {
     return new Promise(resolve => {
         setTimeout(resolve, ms);
     });
