@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-dotenv.config({ path: `.env.${process.env.NODE || 'development'}` });
+dotenv.config({ path: `.env.${process.env.NODE_ENV || 'development'}` });
 
 import Fastify from "fastify";
 import sql from "./sql.service";
