@@ -1,0 +1,8 @@
+{
+    "exchanges": [
+        {
+            "exchange": "kraken",
+            "symbols": ["BTC/USD", "ETH/USD", "SCRT/USD"]
+        }
+    ]
+}
