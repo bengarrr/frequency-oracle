@@ -54,12 +54,18 @@ fastify.get('/', async (request, reply) => {
 })
 
 fastify.get('/coins/:coin', async (request, reply) => {
-    let { timestamp } = request.query as any
-    let { coin } = request.params as any
+    let { timestamp, compare } = request.query as any;
+    let { coin } = request.params as any;
 
     if (typeof timestamp === 'undefined') {
         timestamp = Date.now();
     }
+
+    if(typeof compare !== 'undefined') {
+        let compare_info = await coinCompare(coin, compare);
+        return reply.send(compare_info);
+    }
+
     let coin_info = await coinQuery(coin, parseInt(timestamp));
     return reply.send({ prices: coin_info });
 })
@@ -120,8 +126,30 @@ async function coinQuery(asset: String, date: number, interval: number = 60) {
             coin.name === asset
         )[0].value;
         let timestamp = new Date(row.timestamp);
-        return [price, timestamp.getTime()];
+        return [timestamp.getTime(), price];
     });
 
     return coin_info
+}
+
+async function coinCompare(asset1: String, asset2: String) {
+    const table = "coin_info";
+
+    const row = await sql`
+        SELECT
+            json, timestamp
+        FROM ${ sql(table) }
+        ORDER BY
+            timestamp
+        DESC
+        LIMIT 1
+    `
+
+    const price1 = row[0].json.filter((coin: any) => coin.name === asset1)[0].value;
+    const price2 = row[0].json.filter((coin: any) => coin.name === asset2)[0].value;
+
+    let compare_info: any = {};
+    compare_info[asset1.toString()] = {usd: price1};
+    compare_info[asset2.toString()] = {usd: price2};
+    return compare_info;
 }
