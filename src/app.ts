@@ -28,6 +28,7 @@ import marketFetchProcessorFactory from "./workers/market/market.fetch.worker";
 import marketInsertProcessorFactory from "./workers/market/market.insert.worker";
 import ohlvcFetchProcessorFactory from "./workers/ohlvc/ohlcv.fetch.worker";
 import ohlcvInsertProcessorFactory from "./workers/ohlvc/ohlcv.insert.worker";
+import { DbService } from "./db/db.service";
 
 export type AppWorker = {
     worker: Worker,
@@ -78,18 +79,25 @@ const argv = yargs
         description: 'option for fetch workers date to backfill to, date should be in the form YYYY-MM-DD',
         type: 'string'
     })
+    .option('coins', {
+        description: 'option to scrape coin information',
+        type: 'boolean'
+    })
     .help()
     .alias('help', 'h')
     .parseSync();
    
 function run() {
-    const exchangeInstances = createExchanges(exchangeDefinitions);
-
     if(argv.fetch) {
+        const exchangeInstances = createExchanges(exchangeDefinitions);
         runFetchWorkers(exchangeInstances);
     }
     else if(argv.insert) {
+        const exchangeInstances = createExchanges(exchangeDefinitions);
         runInsertWorkers(exchangeInstances);
+    }
+    else if(argv.coins) {
+        runScrape();
     }
 }
 run();
@@ -260,4 +268,27 @@ function getFetchQueueName(exchange: Exchange, resource: string) {
 
 function getInsertQueueName(exchange: Exchange, resource: string) {
     return exchange.name+'_'+resource+'Insert';
+}
+
+async function runScrape() {
+    const db = new DbService();
+    await db.createTableCoinInfo();
+
+    const json = await fetchScrapingInfo();
+    if(json) {
+        await db.insertCoinInfo(json);
+    }
+}
+
+async function fetchScrapingInfo() {
+    const res = await fetch('https://na36v10ce3.execute-api.us-east-1.amazonaws.com/API-mainnet-STAGE/token_prices', {
+        method: 'GET',
+        headers: {
+            Accept: 'application/json'
+        }
+    });
+    if(res.ok) {
+        let json = await res.json();
+        return json;
+    }
 }

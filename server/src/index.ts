@@ -53,6 +53,17 @@ fastify.get('/', async (request, reply) => {
     }
 })
 
+fastify.get('/coins/:coin', async (request, reply) => {
+    let { timestamp } = request.query as any
+    let { coin } = request.params as any
+
+    if (typeof timestamp === 'undefined') {
+        timestamp = Date.now();
+    }
+    let coin_info = await coinQuery(coin, parseInt(timestamp));
+    return reply.send({ prices: coin_info });
+})
+
 fastify.listen({ port: 3000, host: "0.0.0.0" }, function (err, address) {
     if (err) {
       fastify.log.error(err);
@@ -87,4 +98,30 @@ async function query(date: number, exchange: string = "kraken", interval: number
             LIMIT ${ interval }
         `
     }
+}
+
+async function coinQuery(asset: String, date: number, interval: number = 60) {
+    const table = "coin_info";
+
+    let rows = await sql`
+        SELECT
+            json, timestamp
+        FROM ${ sql(table) }
+        WHERE
+            timestamp < to_timestamp(${ date })
+        ORDER BY
+            timestamp
+        DESC
+        LIMIT ${ interval } 
+    `
+
+    let coin_info = rows!.map(row => {
+        let price = row.json.filter((coin: any) => 
+            coin.name === asset
+        )[0].value;
+        let timestamp = new Date(row.timestamp);
+        return [price, timestamp.getTime()];
+    });
+
+    return coin_info
 }

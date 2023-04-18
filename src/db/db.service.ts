@@ -5,10 +5,11 @@ const sparkmd5: any = require("spark-md5");
 const tables = ['orderbooks', 'tickers', 'trades', 'markets', 'ohlcv'];
 
 export class DbService {
-    private readonly tableRoot: string;
-    constructor(tableRoot: string) {
+    private readonly tableRoot: string = "";
+    constructor(tableRoot: string= "") {
         this.tableRoot = tableRoot.toLowerCase();
-        this.createTables();
+        // this.createTables();
+        // this.createTableCoinInfo();
     }
 
     async insert(table: string, json: any) {
@@ -75,5 +76,37 @@ export class DbService {
                 console.log(res)
             })
         }   
+    }
+
+    async createTableCoinInfo() {
+        let tableName = "coin_info";
+
+        sql`
+            CREATE TABLE IF NOT EXISTS ${ sql(tableName) } (
+                id BIGSERIAL,
+                json JSONB,
+                timestamp TIMESTAMP NOT NULL DEFAULT NOW(),
+                PRIMARY KEY(id)
+            )
+        `.catch(err => {
+            console.log(err)
+        }).then(res => {
+            console.log(res)
+        })
+    }
+
+    async insertCoinInfo(coinInfo: any) {
+        let tableName = "coin_info";
+
+        sql`
+            INSERT INTO ${ sql(tableName) }
+                (json)
+            VALUES
+                (${ coinInfo })
+        `.catch(err => {
+            console.log(err);
+        }).then(res => {
+            console.log(res);
+        });
     }
 }
