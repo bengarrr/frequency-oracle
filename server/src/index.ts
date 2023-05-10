@@ -54,11 +54,17 @@ fastify.get('/', async (request, reply) => {
 })
 
 fastify.get('/coins/:coin', async (request, reply) => {
-    let { timestamp, compare } = request.query as any;
+    let { timestamp, compare, ids } = request.query as any;
     let { coin } = request.params as any;
 
     if (typeof timestamp === 'undefined') {
         timestamp = Date.now();
+    }
+
+    if(typeof ids !== "undefined") {
+        let idArr = JSON.parse(ids);
+        let coin_info = await coinInfoByIds(idArr);
+        return reply.send(coin_info);
     }
 
     if(typeof compare !== 'undefined') {
@@ -152,4 +158,33 @@ async function coinCompare(asset1: String, asset2: String) {
     compare_info[asset1.toString()] = {usd: price1};
     compare_info[asset2.toString()] = {usd: price2};
     return compare_info;
+}
+
+async function coinInfoByIds(ids: Array<String>) {
+    const table = "coin_info";
+
+    const row = await sql`
+        SELECT
+            json, timestamp
+        FROM ${ sql(table) }
+        ORDER BY
+            timestamp
+        DESC
+        LIMIT 1
+    `
+
+    let coin_info = row!.map(row => {
+        let coins = row.json.filter((coin: any) => {
+            return ids.includes(coin.name)
+        })
+
+        let info = {} as any;
+        for(const coin of coins) {
+            info[coin.name] = {usd: coin.value}
+        }
+
+        return info;
+    });
+
+    return coin_info[0]
 }
