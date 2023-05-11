@@ -132,7 +132,7 @@ async function coinQuery(asset: String, date: number, interval: number = 60) {
             coin.name === asset
         )[0].value;
         let timestamp = new Date(row.timestamp);
-        return [timestamp.getTime(), price];
+        return [timestamp.getTime(), parseFloat(price)];
     });
 
     return coin_info
@@ -155,8 +155,8 @@ async function coinCompare(asset1: String, asset2: String) {
     const price2 = row[0].json.filter((coin: any) => coin.name === asset2)[0].value;
 
     let compare_info: any = {};
-    compare_info[asset1.toString()] = {usd: price1};
-    compare_info[asset2.toString()] = {usd: price2};
+    compare_info[asset1.toString()] = {usd: parseFloat(price1)};
+    compare_info[asset2.toString()] = {usd: parseFloat(price2)};
     return compare_info;
 }
 
@@ -180,7 +180,7 @@ async function coinInfoByIds(ids: Array<String>) {
 
         let info = {} as any;
         for(const coin of coins) {
-            info[coin.name] = {usd: coin.value}
+            info[coin.name] = {usd: parseFloat(coin.value)}
         }
 
         return info;
