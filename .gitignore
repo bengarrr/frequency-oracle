@@ -1,1 +1,6 @@
+.env
+.env.development
+.env.production
 node_modules
+todo
+build
